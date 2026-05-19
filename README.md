@@ -121,6 +121,8 @@ pgyer-skill/
 │       └── README.md        # 指向官方 fastlane-plugin-pgyer
 ├── docs/
 │   └── use-with-other-agents.md  # 在 Cursor / Windsurf / Codex 等其他 agent 中使用
+├── tests/
+│   └── scenarios.md         # 路由回归测试（修改 SKILL.md / references/ 后跑一次）
 ├── install.sh               # 备选安装脚本（仅 Claude Code；推荐用 npx skills add）
 └── README.md (this file)
 ```
@@ -128,6 +130,7 @@ pgyer-skill/
 ## 反馈与贡献
 
 - 问题报告：https://github.com/PGYER/pgyer-skill/issues
+- 改了 `SKILL.md` / `references/`？请跑一遍 [`tests/scenarios.md`](tests/scenarios.md) 里的 10 个路由回归测试，确保没破坏决策逻辑。
 - 相关项目：
   - https://github.com/PGYER/pgyer-mcp-server
   - https://github.com/PGYER/upload-app-api-example

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- `tests/scenarios.md` — canonical regression battery for SKILL.md's
+  routing logic. 6 core scenarios (mirrored from v0.1 / v0.2 validation)
+  + 4 extension scenarios (cross-agent install, HarmonyOS, unsupported CI
+  platform, missing API key). Documents how to run via fresh AI session
+  or subagent simulation, with a ✅ / ⚠️ / ❌ grading rubric.
+- README 反馈与贡献 section now points at `tests/scenarios.md` as the
+  expected gate for SKILL.md / references/ changes.
+
 ## [0.3.0] - 2026-05-20
 
 ### Changed
