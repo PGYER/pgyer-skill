@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- `docs/use-with-other-agents.md` — guide for using this skill in Cursor,
+  Windsurf, Codex CLI, Cline, Continue, Roo Code, and custom Anthropic
+  Agent SDK setups. Documents the universal pattern (install
+  `pgyer-mcp-server` via MCP, paste `SKILL.md` body into the tool's
+  rules/instructions slot, fall back to `scripts/pgyer_upload.sh` for
+  anything beyond the three MCP tools) plus tool-specific config paths.
+- README sections (zh / en) linking to the new cross-agent guide.
+
 ## [0.2.0] - 2026-05-20
 
 ### Added

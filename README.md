@@ -65,6 +65,10 @@ claude mcp add --transport stdio pgyer \
 
 Claude 会自动判断走 MCP 还是 shell 脚本，并把短链、二维码、密码等关键信息整理回来。
 
+## 在其他 AI agent 中使用
+
+虽然这个 skill 主要为 Claude Code 设计，但绝大部分内容（MCP server、上传脚本、CI 模板、reference 文档）都可以在 Cursor / Windsurf / Codex CLI / Cline / Continue 等其他 AI agent 工具中使用，也支持基于 Anthropic Agent SDK 自建 agent。详细接入步骤见 [`docs/use-with-other-agents.md`](docs/use-with-other-agents.md)。
+
 ## 目录结构
 
 ```
@@ -88,6 +92,8 @@ pgyer-skill/
 │   │   └── ios.yml
 │   └── fastlane/
 │       └── README.md        # 指向官方 fastlane-plugin-pgyer
+├── docs/
+│   └── use-with-other-agents.md  # 在 Cursor / Windsurf / Codex 等其他 agent 中使用
 ├── install.sh
 └── README.md (this file)
 ```
@@ -120,6 +126,14 @@ export PGYER_API_KEY=<your key>   # from https://www.pgyer.com/account/api
 
 Then ask Claude things like *"Upload `build/app-release.apk` to PGYER with
 install password `qa2026`"* or *"List my PGYER apps"*.
+
+### Using this skill in other AI agents
+
+Most of the skill (MCP server, upload script, CI templates, reference docs)
+is portable to Cursor, Windsurf, Codex CLI, Cline, Continue, and custom
+Anthropic Agent SDK setups. See
+[`docs/use-with-other-agents.md`](docs/use-with-other-agents.md) for the
+per-tool wiring instructions.
 
 ### License
 
