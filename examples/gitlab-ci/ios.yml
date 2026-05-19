@@ -1,0 +1,111 @@
+# GitLab CI — iOS project publishing to PGYER.
+#
+# Drop this into your repo as .gitlab-ci.yml (or merge with an existing one).
+# Requires a macOS runner — either gitlab.com's SaaS macOS runners
+# (https://docs.gitlab.com/ee/ci/runners/saas/macos/) or your own
+# self-hosted macOS runner tagged `macos`.
+#
+# Required setup:
+#   1. Generate a PGYER API key at https://www.pgyer.com/account/api
+#   2. Base64-encode signing materials:
+#        base64 -i Certificates.p12          | pbcopy   # -> IOS_DIST_P12_BASE64
+#        base64 -i AdHoc.mobileprovision     | pbcopy   # -> IOS_PROVISIONING_PROFILE_BASE64
+#   3. In GitLab: Settings -> CI/CD -> Variables, add (all Protected & Masked):
+#        PGYER_API_KEY
+#        IOS_DIST_P12_BASE64                   (File type works too)
+#        IOS_DIST_P12_PASSWORD
+#        IOS_PROVISIONING_PROFILE_BASE64       (File type works too)
+#        IOS_KEYCHAIN_PASSWORD                 (any random string)
+#   4. Fill in the TODOs below (SCHEME, WORKSPACE/PROJECT).
+
+stages:
+  - build
+  - publish
+
+variables:
+  # TODO: replace with your project's values.
+  SCHEME: MyApp
+  WORKSPACE: MyApp.xcworkspace        # or unset and set PROJECT instead
+  # PROJECT: MyApp.xcodeproj
+  CONFIGURATION: Release
+
+build:ipa:
+  stage: build
+  tags: [macos]                        # match your runner; SaaS uses `saas-macos-medium-m1`
+  before_script:
+    - sudo xcode-select -s /Applications/Xcode_15.4.app || true
+    - KEYCHAIN_PATH="$CI_PROJECT_DIR/pgyer-build.keychain-db"
+    - CERT_PATH="$CI_PROJECT_DIR/dist.p12"
+    - echo "$IOS_DIST_P12_BASE64" | base64 --decode > "$CERT_PATH"
+    - security create-keychain -p "$IOS_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+    - security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+    - security unlock-keychain -p "$IOS_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+    - security import "$CERT_PATH" -P "$IOS_DIST_P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+    - security set-key-partition-list -S apple-tool:,apple: -k "$IOS_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+    - security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain
+    - PROFILE_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+    - mkdir -p "$PROFILE_DIR"
+    - echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$PROFILE_DIR/build.mobileprovision"
+  script:
+    - BUILD_FLAG="-workspace $WORKSPACE"
+    - if [ -n "${PROJECT:-}" ]; then BUILD_FLAG="-project $PROJECT"; fi
+    - |
+      xcodebuild $BUILD_FLAG \
+        -scheme "$SCHEME" \
+        -configuration "$CONFIGURATION" \
+        -archivePath build/app.xcarchive \
+        -destination 'generic/platform=iOS' \
+        -allowProvisioningUpdates \
+        archive
+    - |
+      cat > build/ExportOptions.plist <<'PLIST'
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+        <key>method</key><string>ad-hoc</string>
+        <key>signingStyle</key><string>manual</string>
+        <key>compileBitcode</key><false/>
+        <key>stripSwiftSymbols</key><true/>
+      </dict>
+      </plist>
+      PLIST
+    - |
+      xcodebuild -exportArchive \
+        -archivePath build/app.xcarchive \
+        -exportOptionsPlist build/ExportOptions.plist \
+        -exportPath build/export
+  artifacts:
+    paths:
+      - build/export/*.ipa
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+publish:pgyer:
+  stage: publish
+  image: alpine:3.19
+  needs: ["build:ipa"]
+  before_script:
+    - apk add --no-cache curl bash openssl findutils
+  script:
+    - IPA_PATH=$(find build/export -name '*.ipa' | head -n1)
+    - test -n "$IPA_PATH" || { echo "No .ipa found"; exit 1; }
+    - |
+      curl -fsSL \
+        https://raw.githubusercontent.com/PGYER/upload-app-api-example/main/shell-demo/pgyer_upload.sh \
+        -o pgyer_upload.sh
+      chmod +x pgyer_upload.sh
+      ./pgyer_upload.sh -k "$PGYER_API_KEY" -j \
+        -d "$CI_COMMIT_TITLE" \
+        "$IPA_PATH" | tee pgyer-result.json
+      SHORTCUT=$(grep -o '"buildShortcutUrl":"[^"]*"' pgyer-result.json | cut -d'"' -f4)
+      echo "Install URL: https://www.pgyer.com/$SHORTCUT"
+  artifacts:
+    paths:
+      - pgyer-result.json
+    expire_in: 1 month
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "web"

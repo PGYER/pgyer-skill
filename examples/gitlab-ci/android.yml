@@ -1,0 +1,63 @@
+# GitLab CI — Android project publishing to PGYER.
+#
+# Drop this into your repo as .gitlab-ci.yml (or merge with an existing one).
+# For iOS use ios.yml. GitLab does not have an official PGYER plugin, so we
+# use PGYER's bundled shell script.
+#
+# Required setup:
+#   1. Generate an API key at https://www.pgyer.com/account/api
+#   2. In GitLab: Settings -> CI/CD -> Variables, add:
+#        PGYER_API_KEY    (Protected, Masked)
+#
+# Trigger: pushes to main, or manual run from the pipelines UI.
+
+stages:
+  - build
+  - publish
+
+build:apk:
+  stage: build
+  image: cimg/android:2024.01
+  script:
+    - ./gradlew assembleRelease
+  artifacts:
+    paths:
+      - app/build/outputs/apk/release/app-release.apk
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+publish:pgyer:
+  stage: publish
+  image: alpine:3.19
+  needs: ["build:apk"]
+  variables:
+    APK_PATH: app/build/outputs/apk/release/app-release.apk
+  before_script:
+    - apk add --no-cache curl bash openssl
+  script:
+    - |
+      curl -fsSL \
+        https://raw.githubusercontent.com/PGYER/upload-app-api-example/main/shell-demo/pgyer_upload.sh \
+        -o pgyer_upload.sh
+      chmod +x pgyer_upload.sh
+      # -j prints JSON; the install short URL is at data.buildShortcutUrl
+      ./pgyer_upload.sh -k "$PGYER_API_KEY" -j \
+        -d "$CI_COMMIT_TITLE" \
+        "$APK_PATH" | tee pgyer-result.json
+      SHORTCUT=$(grep -o '"buildShortcutUrl":"[^"]*"' pgyer-result.json | cut -d'"' -f4)
+      echo "Install URL: https://www.pgyer.com/$SHORTCUT"
+  artifacts:
+    paths:
+      - pgyer-result.json
+    expire_in: 1 month
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+# Want install password / expiry / channel? Add flags to pgyer_upload.sh:
+#   -t 2 -p qa2026                  -> password install
+#   --install-date 1 --install-start-date 2026-01-01 --install-end-date 2026-12-31
+#   --channel-shortcut my-channel   -> update a specific channel slug
+# Run `./pgyer_upload.sh -h` for the full list.

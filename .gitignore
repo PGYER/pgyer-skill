@@ -1,0 +1,31 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temp / backup
+*.bak
+*.tmp
+*.log
+.cache/
+
+# Local PGYER credentials — NEVER commit these
+.pgyer/
+pgyer.config
+.env
+.env.*
+
+# Build artifacts (in case someone tests the upload script in-tree)
+*.apk
+*.ipa
+*.hap
+*.xcarchive/
+build/
+dist/

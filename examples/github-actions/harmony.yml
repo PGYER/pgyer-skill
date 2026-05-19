@@ -1,0 +1,89 @@
+# Drop this into your repo at .github/workflows/publish-pgyer.yml
+#
+# HarmonyOS project — builds a .hap with hvigorw and publishes to PGYER.
+# For Android use android.yml. For iOS use ios.yml.
+#
+# IMPORTANT — runner requirement:
+#   HarmonyOS SDK is NOT available on GitHub-hosted runners. You need a
+#   self-hosted runner with DevEco Studio's command-line build tools
+#   installed (`hvigorw`, the HarmonyOS SDK, and a JDK 17 / Node).
+#   See https://developer.harmonyos.com for SDK download.
+#
+#   If you do not have a self-hosted runner, the realistic options are:
+#     (a) Build the .hap locally and use `workflow_dispatch` to trigger
+#         an upload-only workflow (see the "upload-only" variant at the
+#         bottom of this file).
+#     (b) Skip CI entirely and run `scripts/pgyer_upload.sh` from your
+#         dev machine after each build.
+#
+# Required setup:
+#   1. Generate a PGYER API key at https://www.pgyer.com/account/api
+#   2. In GitHub: Settings -> Secrets and variables -> Actions
+#      -> add a repository secret named PGYER_API_KEY
+#   3. Configure your self-hosted runner's labels to match `runs-on` below.
+#   4. Sign your .hap (release signing config in build-profile.json5) —
+#      unsigned .hap files will install but most testers cannot use them.
+
+name: Publish HarmonyOS beta to PGYER
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    # TODO: replace with your self-hosted runner's labels.
+    runs-on: [self-hosted, harmonyos]
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build release .hap
+        run: |
+          chmod +x ./hvigorw
+          ./hvigorw clean --no-daemon
+          ./hvigorw assembleHap --mode module -p product=default --no-daemon
+
+      - name: Locate signed .hap
+        id: find_hap
+        run: |
+          # Default hvigorw output path; adjust if your module layout differs.
+          HAP_PATH=$(find entry/build -name '*-signed.hap' | head -n1)
+          if [ -z "$HAP_PATH" ]; then
+            echo "::error::No signed .hap found. Check your signing config in build-profile.json5."
+            exit 1
+          fi
+          echo "hap_path=$HAP_PATH" >> "$GITHUB_OUTPUT"
+          echo "Found HAP at $HAP_PATH"
+
+      - name: Upload to PGYER
+        uses: PGYER/pgyer-upload-app-action@main
+        with:
+          _api_key: ${{ secrets.PGYER_API_KEY }}
+          appFilePath: ${{ steps.find_hap.outputs.hap_path }}
+
+# ---------------------------------------------------------------------------
+# Upload-only variant — use this if you cannot host a HarmonyOS runner.
+# Build the .hap locally, commit it to a release branch or upload it via the
+# Actions UI as a workflow input, and let CI handle only the upload.
+#
+# name: Upload pre-built HarmonyOS .hap to PGYER
+# on:
+#   workflow_dispatch:
+#     inputs:
+#       hap_path:
+#         description: 'Path to the .hap inside this repo'
+#         required: true
+#         default: 'dist/app-release-signed.hap'
+# jobs:
+#   upload:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - name: Upload to PGYER
+#         uses: PGYER/pgyer-upload-app-action@main
+#         with:
+#           _api_key: ${{ secrets.PGYER_API_KEY }}
+#           appFilePath: ${{ inputs.hap_path }}

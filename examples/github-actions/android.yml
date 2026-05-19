@@ -1,0 +1,42 @@
+# Drop this into your repo at .github/workflows/publish-pgyer.yml
+#
+# Android project — publishes a release APK to PGYER on every push to main.
+# For iOS use ios.yml. For HarmonyOS use harmony.yml.
+#
+# Required setup:
+#   1. Generate an API key at https://www.pgyer.com/account/api
+#   2. In GitHub: Settings -> Secrets and variables -> Actions
+#      -> add a repository secret named PGYER_API_KEY
+
+name: Publish beta to PGYER
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Build release APK
+        run: ./gradlew assembleRelease
+
+      - name: Upload to PGYER
+        uses: PGYER/pgyer-upload-app-action@main
+        with:
+          _api_key: ${{ secrets.PGYER_API_KEY }}
+          appFilePath: app/build/outputs/apk/release/app-release.apk
+
+      # Optional: post the install short URL back into the workflow summary.
+      # The upstream action's output schema is undocumented; if you need the
+      # short URL in CI, drop to a curl-based step using the bundled
+      # scripts/pgyer_upload.sh -j and parse the JSON.

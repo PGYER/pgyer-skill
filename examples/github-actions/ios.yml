@@ -1,0 +1,144 @@
+# Drop this into your repo at .github/workflows/publish-pgyer.yml
+#
+# iOS project — archives, exports an ad-hoc .ipa, and publishes to PGYER
+# on every push to main. For Android use android.yml. For HarmonyOS use
+# harmony.yml.
+#
+# Required setup:
+#   1. Generate a PGYER API key at https://www.pgyer.com/account/api
+#   2. Base64-encode your signing cert and provisioning profile:
+#        base64 -i Certificates.p12          | pbcopy   # -> IOS_DIST_P12_BASE64
+#        base64 -i AdHoc.mobileprovision     | pbcopy   # -> IOS_PROVISIONING_PROFILE_BASE64
+#   3. In GitHub: Settings -> Secrets and variables -> Actions, add:
+#        PGYER_API_KEY
+#        IOS_DIST_P12_BASE64
+#        IOS_DIST_P12_PASSWORD
+#        IOS_PROVISIONING_PROFILE_BASE64
+#        IOS_KEYCHAIN_PASSWORD               (any random string; only used inside CI)
+#   4. Fill in the TODOs below for your project (scheme, workspace/project, bundle id).
+#
+# The export uses an ad-hoc profile by default — testers install via the PGYER
+# short URL on their UDID-registered devices. For an enterprise (in-house)
+# profile, change `method` in ExportOptions.plist to `enterprise`.
+
+name: Publish iOS beta to PGYER
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    env:
+      # TODO: replace these three with your project's values.
+      SCHEME: MyApp
+      WORKSPACE: MyApp.xcworkspace        # or unset and use PROJECT instead
+      # PROJECT: MyApp.xcodeproj
+      CONFIGURATION: Release
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        # Pin to a specific Xcode to avoid "works on my mac" drift.
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
+      - name: Install signing cert into a temporary keychain
+        env:
+          P12_BASE64: ${{ secrets.IOS_DIST_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.IOS_DIST_P12_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/pgyer-build.keychain-db"
+          CERT_PATH="$RUNNER_TEMP/dist.p12"
+          echo "$P12_BASE64" | base64 --decode > "$CERT_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain
+
+      - name: Install provisioning profile
+        env:
+          PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          PROFILE_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PROFILE_DIR"
+          echo "$PROFILE_BASE64" | base64 --decode > "$PROFILE_DIR/build.mobileprovision"
+
+      # If you use CocoaPods, uncomment:
+      # - name: Install pods
+      #   run: pod install --repo-update
+
+      - name: Archive
+        run: |
+          BUILD_FLAG="-workspace $WORKSPACE"
+          if [ -n "${PROJECT:-}" ]; then BUILD_FLAG="-project $PROJECT"; fi
+          xcodebuild \
+            $BUILD_FLAG \
+            -scheme "$SCHEME" \
+            -configuration "$CONFIGURATION" \
+            -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            -destination 'generic/platform=iOS' \
+            -allowProvisioningUpdates \
+            archive | xcpretty && exit ${PIPESTATUS[0]}
+
+      - name: Write ExportOptions.plist
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>ad-hoc</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>compileBitcode</key>
+            <false/>
+            <key>stripSwiftSymbols</key>
+            <true/>
+          </dict>
+          </plist>
+          PLIST
+
+      - name: Export .ipa
+        run: |
+          xcodebuild \
+            -exportArchive \
+            -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export" | xcpretty && exit ${PIPESTATUS[0]}
+
+      - name: Locate .ipa
+        id: find_ipa
+        run: |
+          IPA_PATH=$(find "$RUNNER_TEMP/export" -name '*.ipa' | head -n1)
+          echo "ipa_path=$IPA_PATH" >> "$GITHUB_OUTPUT"
+          echo "Found IPA at $IPA_PATH"
+
+      - name: Upload to PGYER
+        uses: PGYER/pgyer-upload-app-action@main
+        with:
+          _api_key: ${{ secrets.PGYER_API_KEY }}
+          appFilePath: ${{ steps.find_ipa.outputs.ipa_path }}
+
+      # Need install password / expiry / channel? The official action only
+      # accepts _api_key + appFilePath. Replace the step above with the
+      # bundled shell script — see ../../scripts/pgyer_upload.sh — e.g.:
+      #
+      #   - name: Upload to PGYER (with password)
+      #     env:
+      #       PGYER_API_KEY: ${{ secrets.PGYER_API_KEY }}
+      #     run: |
+      #       curl -fsSL https://raw.githubusercontent.com/PGYER/upload-app-api-example/main/shell-demo/pgyer_upload.sh \
+      #         -o pgyer_upload.sh && chmod +x pgyer_upload.sh
+      #       ./pgyer_upload.sh -k "$PGYER_API_KEY" -t 2 -p qa2026 \
+      #         -d "${{ github.event.head_commit.message }}" \
+      #         -j "${{ steps.find_ipa.outputs.ipa_path }}"
