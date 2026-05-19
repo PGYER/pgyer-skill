@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-20
+
 ### Changed
 - **Repositioned as a general-purpose Agent Skill.** README, SKILL.md
   references, and docs now describe the project as supporting Claude Code +
