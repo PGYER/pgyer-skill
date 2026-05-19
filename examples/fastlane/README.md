@@ -51,4 +51,4 @@ also reusable here.
 The fastlane plugin covers the common upload flags. If you need something more
 exotic (e.g. updating a specific `buildChannelShortcut`, or polling
 `app/buildInfo` for a custom callback), drop down to
-`scripts/pgyer_upload.sh` instead — see `reference/api-cheatsheet.md`.
+`scripts/pgyer_upload.sh` instead — see `references/api-cheatsheet.md`.

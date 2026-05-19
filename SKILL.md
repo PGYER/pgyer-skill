@@ -11,7 +11,7 @@ PGYER (https://www.pgyer.com) is China's leading iOS / Android / HarmonyOS beta-
 
 This skill prefers **PGYER's official MCP server** when it is installed, and falls back to **a bundled official shell script** otherwise. Both paths hit the same underlying API.
 
-At the start of every task, check whether the MCP tools `upload-app`, `list-my-apps`, or `get-app-info-by-shortcut` are listed in this session. Then use the **Capability map** below as the single source of truth for which path (MCP / shell / curl) to use per task — including the cases where MCP is insufficient and you must drop down. Raw HTTP details are in `reference/api-cheatsheet.md`.
+At the start of every task, check whether the MCP tools `upload-app`, `list-my-apps`, or `get-app-info-by-shortcut` are listed in this session. Then use the **Capability map** below as the single source of truth for which path (MCP / shell / curl) to use per task — including the cases where MCP is insufficient and you must drop down. Raw HTTP details are in `references/api-cheatsheet.md`.
 
 ## Credentials
 
@@ -93,9 +93,9 @@ of `harmony.yml`.
 
 ## Where to look next
 
-- `reference/mcp-tools.md` — exact MCP tool schemas and example calls.
-- `reference/api-cheatsheet.md` — raw HTTP endpoints, params, response shapes.
-- `reference/troubleshooting.md` — common error codes, network/domain fallback, signing issues.
+- `references/mcp-tools.md` — exact MCP tool schemas and example calls.
+- `references/api-cheatsheet.md` — raw HTTP endpoints, params, response shapes.
+- `references/troubleshooting.md` — common error codes, network/domain fallback, signing issues.
 - `scripts/pgyer_upload.sh` — bundled official upload script (multi-domain, all parameters).
 - `examples/` — CI/CD templates organized as `<platform>/<os>.yml`.
   - `github-actions/{android,ios,harmony}.yml`

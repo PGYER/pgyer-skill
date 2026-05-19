@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 #
-# install.sh — install the PGYER Claude Code skill into ~/.claude/skills/pgyer
+# install.sh — Claude-Code-only install. Copies this skill into
+# ~/.claude/skills/pgyer.
+#
+# RECOMMENDED: use the open `skills` CLI instead — it supports 50+ agents
+# (Claude Code, Cursor, Windsurf, Codex CLI, OpenCode, ...) with one command:
+#
+#   npx skills add PGYER/pgyer-skill -g
+#
+# This script is kept as a fallback for users who can't or don't want to
+# use the CLI.
 #
 # Usage:
 #   ./install.sh                # install into ~/.claude/skills/pgyer

@@ -7,14 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- **Repositioned as a general-purpose Agent Skill.** README, SKILL.md
+  references, and docs now describe the project as supporting Claude Code +
+  Cursor + Windsurf + Codex CLI + OpenCode + 50+ other agents via the open
+  [`skills`](https://github.com/vercel-labs/skills) CLI, rather than as a
+  Claude-Code-only skill.
+- README primary install method is now `npx skills add PGYER/pgyer-skill`.
+  The `git clone + install.sh` flow is demoted to a fallback (still
+  supported, with a comment in `install.sh` pointing at the CLI).
+- Renamed `reference/` → `references/` (plural) to match the broader
+  skills ecosystem convention. SKILL.md, `docs/use-with-other-agents.md`,
+  and `examples/fastlane/README.md` updated. `git mv` preserves history.
+- Rewrote `docs/use-with-other-agents.md` to lead with `npx skills add -a <agent>`
+  per-agent invocations. Kept manual-install fallback for agents not yet in
+  the CLI registry, kept the Anthropic Agent SDK custom-code section, kept
+  the shell-script-only fallback.
+
 ### Added
-- `docs/use-with-other-agents.md` — guide for using this skill in Cursor,
-  Windsurf, Codex CLI, Cline, Continue, Roo Code, and custom Anthropic
-  Agent SDK setups. Documents the universal pattern (install
-  `pgyer-mcp-server` via MCP, paste `SKILL.md` body into the tool's
-  rules/instructions slot, fall back to `scripts/pgyer_upload.sh` for
-  anything beyond the three MCP tools) plus tool-specific config paths.
-- README sections (zh / en) linking to the new cross-agent guide.
+- README `skills.sh` badge linking to https://skills.sh/PGYER/pgyer-skill.
+- README sections (zh / en) plus `docs/use-with-other-agents.md` covering
+  use of this skill across Cursor, Windsurf, Codex CLI, Cline, Continue,
+  Roo Code, and custom Anthropic Agent SDK setups.
 
 ## [0.2.0] - 2026-05-20
 
